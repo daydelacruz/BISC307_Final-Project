@@ -1,0 +1,127 @@
+---
+title: "Final Code"
+author: "Dayna De La Cruz"
+date: "11/22/2020"
+output: html_document
+---
+```{r}
+# Load libraries
+library(tidyverse)
+library(Hmisc)
+library(corrplot)
+library(ggplot2)
+```
+
+
+```{r setup, include=FALSE}
+LCE_data <- read_csv("data/LCE/LCE_data.csv") %>%
+  mutate(SLA = LA/LM) %>%# Make specific leaf area column (leaf area/leaf mass)
+  select(Phenology, Lifespan, CN, SLA)%>%
+filter(!is.na(CN))%>%
+filter(!is.na(SLA))
+
+LCE_data$Phenology <- as.factor(LCE_data$Phenology)
+LCE_data$Lifespan <- as.factor(LCE_data$Lifespan)
+
+evergreen <- filter(LCE_data, Phenology == "Evergreen") %>%
+  mutate(CN_avg = mean(CN)) %>%
+  mutate(SLA_avg = mean(SLA)) %>%
+  mutate(Characteristic = Phenology)%>%
+  select(Characteristic,CN_avg,SLA_avg) 
+  
+nonevergreen <- filter(LCE_data, Phenology == "Nonevergreen") %>%
+  mutate(CN_avg = mean(CN)) %>%
+  mutate(SLA_avg = mean(SLA))%>%
+  mutate(Characteristic = Phenology) %>%
+select(Characteristic,CN_avg,SLA_avg)
+
+perennial <- filter(LCE_data, Lifespan == "Perennial") %>%
+  mutate(CN_avg = mean(CN)) %>%
+  mutate(SLA_avg = mean(SLA)) %>%
+   mutate(Characteristic = Lifespan) %>%
+  select(Characteristic,CN_avg,SLA_avg)
+
+annual <- filter(LCE_data, Lifespan == "Annual") %>%
+  mutate(CN_avg = mean(CN)) %>%
+  mutate(SLA_avg = mean(SLA))%>%
+  mutate(Characteristic = Lifespan) %>%
+  select(Characteristic,CN_avg,SLA_avg)
+
+# Add datasets vertically
+Phenology <- full_join(evergreen, nonevergreen) %>%
+  filter(row_number()==1|row_number()==211)
+
+Lifespan <- full_join(perennial, annual) %>%
+  filter(row_number()==1|row_number()==548)
+
+Characteristics <- full_join(Phenology, Lifespan)
+
+
+```
+
+## Scatter Plots
+```{r}
+
+ggplot(data = LCE_data) +
+  geom_point(mapping = aes(x = log(SLA), y = log(CN)))+
+  labs(x = "log(Specific Leaf Area)", y = "log(Carbon % / Nitrogen %)")
+theme_bw()
+
+ggplot(data = LCE_data) +
+  geom_point(mapping = aes(x = log(SLA), y = log(CN), color = Phenology))+
+  labs(x = "log(Specific Leaf Area)", y = "log(Carbon % / Nitrogen %)")
+theme_bw()
+
+ggplot(data = LCE_data) +
+  geom_point(mapping = aes(x = log(SLA), y = log(CN), color = Lifespan))+
+  labs(x = "log(Specific Leaf Area)", y = "log(Carbon % / Nitrogen %)")
+theme_bw()
+
+```
+
+## Bar Plots
+
+```{r}
+#Bar Plots
+ggplot(data=Characteristics, aes(x=Characteristic, y=CN_avg, fill = Characteristic)) +
+  geom_bar(stat="identity", width=0.5)+
+  labs(x = "Plant Characteristic", y = "Carbon%/Nitrogen% Average")
+
+ggplot(data=Characteristics, aes(x=Characteristic, y=SLA_avg, fill = Characteristic)) +
+  geom_bar(stat="identity", width=0.5)+
+  labs(x = "Plant Characteristic", y = "Surface Leaf Area Average (Units?)")
+```
+
+## Statistical Tests
+
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+
+#Calculate correlation between log (CN) vs. log(SLA) 
+
+CN_SLA <- cor.test(log(LCE_data$CN), 
+         log(LCE_data$SLA))
+CN_SLA
+
+
+
+
+```
+
+
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+#Create linear regression model for log(Vcmax) ~ log(CN) 
+
+reg_CN_SLA <- lm(log(CN) ~ log(SLA), 
+                    data = LCE_data)
+# Look at linear regression summary
+summary(reg_CN_SLA)
+
+
+```
+
+```{r}
+#T-test
+
+
+```
+
