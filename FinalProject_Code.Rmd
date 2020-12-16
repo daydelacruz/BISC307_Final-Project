@@ -1,127 +1,151 @@
 ---
-title: "Final Code"
+title: "FinalProject_Code"
 author: "Dayna De La Cruz"
 date: "11/22/2020"
 output: html_document
 ---
-```{r}
-# Load libraries
+
+## Loading Packages
+```{r, include=TRUE, message=FALSE, warning=FALSE, results="hide"}
+# Load needed libraries
 library(tidyverse)
 library(Hmisc)
 library(corrplot)
 library(ggplot2)
 ```
 
+## Wrangling Data
+```{r, include=TRUE, message=FALSE, warning=FALSE, results="hide"}
+# Read LCE dataframe from data folder, create a new column for specific leaf area, select needed columns and remove the NA's within the data
 
-```{r setup, include=FALSE}
 LCE_data <- read_csv("data/LCE/LCE_data.csv") %>%
   mutate(SLA = LA/LM) %>%# Make specific leaf area column (leaf area/leaf mass)
   select(Phenology, Lifespan, CN, SLA)%>%
 filter(!is.na(CN))%>%
 filter(!is.na(SLA))
 
+# Changed some data columns to factors for proper future graphing
 LCE_data$Phenology <- as.factor(LCE_data$Phenology)
 LCE_data$Lifespan <- as.factor(LCE_data$Lifespan)
 
+# Created a seperate data frame for each of the four traits in order to calculate the average CN and SLA measurement of each one
 evergreen <- filter(LCE_data, Phenology == "Evergreen") %>%
   mutate(CN_avg = mean(CN)) %>%
   mutate(SLA_avg = mean(SLA)) %>%
-  mutate(Characteristic = Phenology)%>%
-  select(Characteristic,CN_avg,SLA_avg) 
+  mutate(Trait = Phenology)%>%
+  select(Trait,CN_avg,SLA_avg) 
   
 nonevergreen <- filter(LCE_data, Phenology == "Nonevergreen") %>%
   mutate(CN_avg = mean(CN)) %>%
   mutate(SLA_avg = mean(SLA))%>%
-  mutate(Characteristic = Phenology) %>%
-select(Characteristic,CN_avg,SLA_avg)
+  mutate(Trait = Phenology) %>%
+select(Trait,CN_avg,SLA_avg)
 
 perennial <- filter(LCE_data, Lifespan == "Perennial") %>%
   mutate(CN_avg = mean(CN)) %>%
   mutate(SLA_avg = mean(SLA)) %>%
-   mutate(Characteristic = Lifespan) %>%
-  select(Characteristic,CN_avg,SLA_avg)
+   mutate(Trait = Lifespan) %>%
+  select(Trait,CN_avg,SLA_avg)
 
 annual <- filter(LCE_data, Lifespan == "Annual") %>%
   mutate(CN_avg = mean(CN)) %>%
   mutate(SLA_avg = mean(SLA))%>%
-  mutate(Characteristic = Lifespan) %>%
-  select(Characteristic,CN_avg,SLA_avg)
+  mutate(Trait = Lifespan) %>%
+  select(Trait,CN_avg,SLA_avg)
 
-# Add datasets vertically
+# Combined all the datasets into one
 Phenology <- full_join(evergreen, nonevergreen) %>%
   filter(row_number()==1|row_number()==211)
 
 Lifespan <- full_join(perennial, annual) %>%
   filter(row_number()==1|row_number()==548)
 
-Characteristics <- full_join(Phenology, Lifespan)
+Traits <- full_join(Phenology, Lifespan)
 
 
 ```
 
-## Scatter Plots
-```{r}
-
+## Graphs
+### Scatter Plots
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+#Scatter plot: log(CN) vs. log(SLA) + linear model
 ggplot(data = LCE_data) +
   geom_point(mapping = aes(x = log(SLA), y = log(CN)))+
-  labs(x = "log(Specific Leaf Area)", y = "log(Carbon % / Nitrogen %)")
+  geom_smooth(mapping = aes(x = log(SLA), y = log(CN)), method = lm)+ #adding linear model
+  labs(x = "log(Specific Leaf Area)", y = "log(Carbon:Nitrogen)(g/g)")
 theme_bw()
 
+#Scatter plot: log(CN) vs. log(SLA) with Phenology color aesthetic + linear model
 ggplot(data = LCE_data) +
   geom_point(mapping = aes(x = log(SLA), y = log(CN), color = Phenology))+
-  labs(x = "log(Specific Leaf Area)", y = "log(Carbon % / Nitrogen %)")
+  geom_smooth(mapping = aes(x = log(SLA), y = log(CN)), method = lm)+ #adding linear model
+  labs(x = "log(Specific Leaf Area)", y = "log(Carbon:Nitrogen)(g/g)")
 theme_bw()
 
+#Scatter plot: log(CN) vs. log(SLA) with Lifespan color aesthetic + linear model
 ggplot(data = LCE_data) +
   geom_point(mapping = aes(x = log(SLA), y = log(CN), color = Lifespan))+
-  labs(x = "log(Specific Leaf Area)", y = "log(Carbon % / Nitrogen %)")
+  geom_smooth(mapping = aes(x = log(SLA), y = log(CN)), method = lm)+ #adding linear model
+  labs(x = "log(Specific Leaf Area) (cm^2)", y = "log(Carbon:Nitrogen)(g/g)")
 theme_bw()
 
 ```
 
-## Bar Plots
+### Bar Plots
 
-```{r}
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
 #Bar Plots
-ggplot(data=Characteristics, aes(x=Characteristic, y=CN_avg, fill = Characteristic)) +
-  geom_bar(stat="identity", width=0.5)+
-  labs(x = "Plant Characteristic", y = "Carbon%/Nitrogen% Average")
+sd_CNavg<-sd(Traits$CN_avg) #calculating Standard Deviation
 
-ggplot(data=Characteristics, aes(x=Characteristic, y=SLA_avg, fill = Characteristic)) +
+#Bar plot: CN_avg vs. Plant Trait
+ggplot(data=Traits, aes(x=Trait, y=CN_avg, fill = Trait)) +
   geom_bar(stat="identity", width=0.5)+
-  labs(x = "Plant Characteristic", y = "Surface Leaf Area Average (Units?)")
+  geom_errorbar( aes(x=Trait, ymin=CN_avg-sd_CNavg, ymax=CN_avg+sd_CNavg), width=0.4, colour="orange", alpha=0.9, size=1.3)+ #adding error bars
+  labs(x = "Plant Trait", y = "Carbon:Nitrogen Average (g/g)")
+
+sd_SLAavg<-sd(Traits$SLA_avg) #calculating Standard Deviation
+
+#Bar plot: SLA_avg vs. Plant Trait
+ggplot(data=Traits, aes(x=Trait, y=SLA_avg, fill = Trait)) +
+  geom_bar(stat="identity", width=0.5)+
+  geom_errorbar( aes(x=Trait, ymin=SLA_avg-sd_SLAavg, ymax=SLA_avg+sd_SLAavg), width=0.4, colour="orange", alpha=0.9, size=1.3)+ #adding error bars
+  labs(x = "Plant Trait", y = "Specific Leaf Area Average (cm^2)")
 ```
 
 ## Statistical Tests
-
+### Correlation Analysis
 ```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
-
-#Calculate correlation between log (CN) vs. log(SLA) 
+#Calculated correlation between log (CN) vs. log(SLA) 
 
 CN_SLA <- cor.test(log(LCE_data$CN), 
          log(LCE_data$SLA))
+# Looked at correlation summary
 CN_SLA
 
-
-
-
 ```
 
-
+### Linear Regression Analysis
 ```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
-#Create linear regression model for log(Vcmax) ~ log(CN) 
-
+#Created linear regression model for log(CN) ~ log(SLA) 
 reg_CN_SLA <- lm(log(CN) ~ log(SLA), 
                     data = LCE_data)
-# Look at linear regression summary
+# Looked at linear regression summary
 summary(reg_CN_SLA)
 
-
 ```
+### T-tests
+```{r, include=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+# Performed independent 2-group t-test across phenology for both CN and SLA
+CN_Phen<-t.test(Phenology$CN_avg) 
+CN_Phen
+SLA_Phen<-t.test(Phenology$SLA_avg)
+SLA_Phen
 
-```{r}
-#T-test
-
+# Performed independent 2-group t-test across lifespan for both CN and SLA
+CN_LS<-t.test(Lifespan$CN_avg) 
+CN_LS
+SLA_LS<-t.test(Lifespan$SLA_avg)
+SLA_LS
 
 ```
 
